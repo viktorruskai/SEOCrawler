@@ -1,0 +1,8 @@
+/.idea/
+/build/
+/vendor/
+/App/Cache/*
+!/App/Cache/.gitkeep
+/Logs/app.log
+/Public/adminer.php
+/.phpunit.result.cache
