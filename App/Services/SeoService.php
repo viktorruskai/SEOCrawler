@@ -273,8 +273,6 @@ class SeoService
         // $pageModel->save();
 
         $this->startScan();
-
-
     }
 
     /**
