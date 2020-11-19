@@ -1,5 +1,6 @@
 <?php
 
+use App\Middlewares\ErrorMiddleware;
 use DI\ContainerBuilder;
 use Illuminate\Database\Capsule\Manager;
 use Monolog\Handler\StreamHandler;
@@ -49,15 +50,22 @@ try {
     return json_encode([
         'error' => 'Container',
         'code' => 500,
-    ]);
+    ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 }
 
 // Instantiate the app
 AppFactory::setContainer($container);
 $app = AppFactory::create();
 
-// Add error middleware
-$app->addErrorMiddleware(true, true, true);
+// Error middleware
+$errorMiddleware = new ErrorMiddleware([
+    'dsn' => 'https://d18a4b7b04284e98bd8dc862326645f9@o338677.ingest.sentry.io/5523633',
+    'environment' => 'local',
+]);
+
+// Error handler
+$errorHandler = $app->addErrorMiddleware(true, true, true);
+$errorHandler->setDefaultErrorHandler($errorMiddleware);
 
 // App routes
 $routes = require __DIR__ . '/routes.php';
