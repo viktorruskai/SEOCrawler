@@ -21,6 +21,15 @@ class AnalyzeControllerTest extends TestCase
         ];
     }
 
+//    return [
+//        'status' => 'success|error', // if the page was loaded etc.
+//        'data' => [
+//            'isSeoGood' => true|false, // Main factor
+//            'websiteName' => '',
+//            'problems' => [], // if `isSeoGood` is `true` then `problems` would be empty
+//        ],
+//    ];
+
     /**
      * Analyze positive test
      *
@@ -36,8 +45,11 @@ class AnalyzeControllerTest extends TestCase
         // Make request and fetch response
         $response = $this->app->handle($request);
 
+        $responseJson = [];
+
         // Asserts
         self::assertSame(200, $response->getStatusCode());
+
     }
 
     /**
