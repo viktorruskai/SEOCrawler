@@ -57,6 +57,7 @@ class ErrorMiddleware
         $response->getBody()->write(json_encode([
             'status' => 'error',
             'message' => $exception->getMessage(),
+            'code' => $exception->getCode() ?: 500,
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $response;
     }
