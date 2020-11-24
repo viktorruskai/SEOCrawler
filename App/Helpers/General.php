@@ -2,7 +2,8 @@
 
 namespace App\Helpers;
 
-use Slim\Psr7\Response;
+use JsonException;
+use Psr\Http\Message\ResponseInterface as Response;
 
 trait General
 {
@@ -12,13 +13,21 @@ trait General
      *
      * @param Response $response
      * @param array $data
+     * @param string|null $message
      * @return Response
+     * @throws JsonException
      */
-    public function onSuccess(Response $response, array $data = []): Response
+    public function onSuccess(Response $response, array $data = [], ?string $message = null): Response
     {
-        $response->getBody()->write(json_encode(array_merge([
+        $toReturn = [
             'status' => 'success',
-        ], $data)));
+        ];
+
+        if ($message) {
+            $toReturn['message'] = $message;
+        }
+
+        $response->getBody()->write(json_encode(array_merge($toReturn, $data), JSON_THROW_ON_ERROR));
 
         return $response->withHeader('Content-Type', 'application/json');
     }
@@ -28,13 +37,21 @@ trait General
      *
      * @param Response $response
      * @param array $data
+     * @param string|null $message
      * @return Response
+     * @throws JsonException
      */
-    public function onError(Response $response, array $data = []): Response
+    public function onError(Response $response, array $data = [], ?string $message = null): Response
     {
-        $response->getBody()->write(json_encode(array_merge([
+        $toReturn = [
             'status' => 'error',
-        ], $data)));
+        ];
+
+        if ($message) {
+            $toReturn['message'] = $message;
+        }
+
+        $response->getBody()->write(json_encode(array_merge($toReturn, $data), JSON_THROW_ON_ERROR));
 
         return $response->withHeader('Content-Type', 'application/json');
     }

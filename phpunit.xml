@@ -5,9 +5,9 @@
         <testsuite name="Controllers">
             <directory>App/Tests/Controllers</directory>
         </testsuite>
-        <testsuite name="Services">
-            <directory>App/Tests/Services</directory>
-        </testsuite>
+<!--        <testsuite name="Services">-->
+<!--            <directory>App/Tests/Services</directory>-->
+<!--        </testsuite>-->
     </testsuites>
     <coverage>
         <include>

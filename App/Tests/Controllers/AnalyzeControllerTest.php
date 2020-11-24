@@ -3,6 +3,7 @@
 namespace App\Tests\Controllers;
 
 use App\Tests\AppTestTrait;
+use JsonException;
 use PHPUnit\Framework\TestCase;
 
 class AnalyzeControllerTest extends TestCase
@@ -19,40 +20,88 @@ class AnalyzeControllerTest extends TestCase
         return [
             ['http://localhost:8080/test/testOk.html'],
         ];
+
+//        return [
+//            'status' => 'success',
+//            'data' => [
+//                'isSeoGood' => true,
+//                'websiteName' => '',
+//                'problems' => [],
+//            ],
+//        ];
     }
 
-//    return [
-//        'status' => 'success|error', // if the page was loaded etc.
-//        'data' => [
-//            'isSeoGood' => true|false, // Main factor
-//            'websiteName' => '',
-//            'problems' => [], // if `isSeoGood` is `true` then `problems` would be empty
-//        ],
-//    ];
+    /**
+     * Websites with negative response (SEO problems)
+     *
+     * @return string[]
+     */
+    public function badWebsitesDataProvider(): array
+    {
+        return [
+            ['http://localhost:8080/test/testNok.html'],
+        ];
+
+//        return [
+//            'status' => 'success',
+//            'data' => [
+//                'isSeoGood' => true,
+//                'websiteName' => '',
+//                'problems' => [],
+//            ],
+//        ];
+    }
 
     /**
      * Analyze positive test
      *
      * @dataProvider goodWebsitesDataProvider
      * @param string $url
+     * @throws JsonException
      */
     public function testAnalyzePositive(string $url): void
     {
-        $request = $this->createRequest('POST', '/analyze', [
+        $request = $this->createJsonRequest('POST', '/analyze', [
             'url' => $url,
         ]);
 
         // Make request and fetch response
         $response = $this->app->handle($request);
 
-        $responseJson = [];
-
+        $responseJson = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+//var_dump($responseJson);
         // Asserts
         self::assertSame(200, $response->getStatusCode());
-
+        self::assertSame('success', $responseJson['status']);
+        self::assertTrue($responseJson['data']['isSeoGood']);
+        self::assertSame($url, $responseJson['data']['websiteName']);
+        self::assertEmpty($responseJson['data']['problems']);
     }
 
-    /**
-     * Analyze negative test
-     */
+//    /**
+//     * Analyze negative test
+//     *
+//     * @dataProvider badWebsitesDataProvider
+//     * @param string $url
+//     * @throws JsonException
+//     */
+//    public function testAnalyzeNegative(string $url): void
+//    {
+//        $request = $this->createRequest('POST', '/analyze', [
+//            'url' => $url,
+//        ]);
+//
+//        // Make request and fetch response
+//        $response = $this->app->handle($request);
+//
+//        $responseJson = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+//
+//        // Asserts
+//        self::assertSame(200, $response->getStatusCode());
+//        self::assertSame('success', $responseJson['status']);
+//        self::assertFalse($responseJson['data']['isSeoGood']);
+//        self::assertSame($url, $responseJson['data']['websiteName']);
+//        self::assertEmpty($responseJson['data']['problems']);
+//    }
+
 }
