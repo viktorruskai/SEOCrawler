@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Exceptions\SeoException;
+use App\Exceptions\SiteException;
 use App\Helpers\General;
 use App\Services\SeoService;
 use GuzzleHttp\Client;
@@ -43,6 +44,7 @@ class AnalyzeController
      * @return Response
      * @throws JsonException
      * @throws SeoException
+     * @throws SiteException
      */
     public function analyze(Request $request, Response $response): Response
     {
@@ -56,16 +58,8 @@ class AnalyzeController
 
         $seoService->scan();
 
-        $seoService->getResults();
-
         return $this->onSuccess($response, [
-            'data' => [
-                'isSeoGood' => true,
-                'websiteName' => $url,
-                'problems' => [
-
-                ],
-            ],
+            'data' => $seoService->getResults(),
         ]);
 
 //        $url = 'https://www.google.com';

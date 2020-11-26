@@ -37,6 +37,7 @@ class ErrorMiddleware
      * @param LoggerInterface|null $logger
      * @return Response
      * @throws JsonException
+     * @throws Throwable
      */
     public function __invoke(ServerRequestInterface $request, Throwable $exception, bool $displayErrorDetails, bool $logErrors, bool $logErrorDetails, ?LoggerInterface $logger = null)
     {
@@ -48,6 +49,11 @@ class ErrorMiddleware
 
         if ($logger && $isLogged) {
             $logger->error($exception->getMessage());
+        }
+
+        // Todo: only local dev
+        if ($displayErrorDetails) {
+//            throw $exception;
         }
 
         init($this->options);

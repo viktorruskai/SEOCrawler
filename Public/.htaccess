@@ -16,6 +16,8 @@
   # absolute physical path to the directory that contains this htaccess file.
   # RewriteBase /
 
+    RewriteRule ^(test|user)($|/) - [L]
+
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^ index.php [QSA,L]
 </IfModule>
