@@ -18,7 +18,7 @@ class AnalyzeControllerTest extends TestCase
     public function goodWebsitesDataProvider(): array
     {
         return [
-            ['http://localhost:8080/test/testOk.html'],
+            ['http://127.0.0.1:8080/test/ok.php'],
         ];
 
 //        return [
@@ -39,7 +39,7 @@ class AnalyzeControllerTest extends TestCase
     public function badWebsitesDataProvider(): array
     {
         return [
-            ['http://localhost:8080/test/testNok.html'],
+            ['http://127.0.0.1:8080/test/testNok.html'],
         ];
 
 //        return [
@@ -69,7 +69,7 @@ class AnalyzeControllerTest extends TestCase
         $response = $this->app->handle($request);
 
         $responseJson = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
-//var_dump($responseJson);
+
         // Asserts
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('success', $responseJson['status']);
