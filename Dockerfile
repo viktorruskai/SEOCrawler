@@ -1,8 +1,8 @@
 FROM php:7.4-fpm-alpine
 
-RUN apt-get update \
-    && apt-get install -y libmcrypt-dev \
-    mysql-client libmagickwand-dev --no-install-recommends \
+RUN apk --update --no-cache add \
+    && libmcrypt-dev \
+    mysql-client libmagickwand-dev \
     && pecl install imagick \
     && docker-php-ext-enable imagick \
     && docker-php-ext-install mcrypt pdo_mysql \
