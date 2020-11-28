@@ -1,12 +1,17 @@
 FROM php:7.4-fpm-alpine
 
 RUN apk --update --no-cache add \
-    && libmcrypt-dev \
-    mysql-client libmagickwand-dev \
-    && pecl install imagick \
-    && docker-php-ext-enable imagick \
-    && docker-php-ext-install mcrypt pdo_mysql \
-    && rm -rf /var/cache/apk/*
+        make \
+        nano \
+        libxml2-dev \
+        curl \
+        nodejs \
+        libmcrypt-dev \
+        mysql-client \
+    && docker-php-ext-install \
+        mcrypt \
+        pdo_mysql \
+        xml
 
 # Copy existing application directory contents
 COPY . /var/www
