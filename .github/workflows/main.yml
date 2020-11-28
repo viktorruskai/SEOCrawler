@@ -37,7 +37,7 @@ jobs:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
       - name: Push Image to Digitalocean
-          run: |
-            doctl registry login
-            docker tag doseo:latest ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
-            docker push ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
+        run: |
+          doctl registry login
+          docker tag doseo:latest ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
+          docker push ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
