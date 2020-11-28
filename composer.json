@@ -13,7 +13,6 @@
     ],
     "require": {
         "php": ">=7.4",
-        "ext-imagick": "*",
         "ext-json": "*",
         "guzzlehttp/guzzle": "6.3.3",
         "illuminate/database": "5.8.x-dev",
