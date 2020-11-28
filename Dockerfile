@@ -7,9 +7,8 @@ RUN apk --update --no-cache add \
         curl \
         nodejs \
         libmcrypt-dev \
-        mysql-client \
-    && docker-php-ext-install \
-        mcrypt \
+        mysql-client
+RUN docker-php-ext-install \
         pdo_mysql \
         xml
 
