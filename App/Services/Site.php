@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Exceptions\SiteException;
 use DOMDocument;
+use DOMNode;
 use DOMXpath;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -29,14 +30,14 @@ class Site
     {
         $response = null;
 
-        $request = new Request('GET', $url, [
-            'timeout' => 6,
-            'connection_timeout' => 6,
-        ]);
-
         try {
-            $client = new Client();
-            $response = $client->send($request);
+            $client = new Client([
+                'timeout' => 6,
+                'connection_timeout' => 6,
+                'read_timeout' => 6,
+            ]);
+
+            $response = $client->request('GET', $url);
 
             if ($response->getStatusCode() !== 200) {
                 throw new SiteException('Url: ' . $url . ' has returned `' . $response->getStatusCode() . '` code.');
@@ -45,7 +46,7 @@ class Site
             // HTML code
             $response = $response->getBody()->getContents();
         } catch (GuzzleException $e) {
-            throw new SiteException('Something bad happened.');
+            throw new SiteException($e->getMessage());
         }
 
         if (!$response) {
@@ -61,6 +62,24 @@ class Site
         $this->xPath = new DOMXpath($this->dom);
     }
 
+    /**
+     * Return language
+     *
+     * @return string|null
+     */
+    public function getHtmlLang(): ?string
+    {
+        $lang = $this->xPath->query('//html[@lang]') ?: null;
+
+        if (isset($lang) && $lang->item(0)) {
+            /** @var DOMNode  $item */
+            $item = $lang->item(0);
+
+            $lang = $item ? $item->getAttribute('lang') : null;
+        }
+
+        return $lang;
+    }
 
     /**
      * Parse meta tags
@@ -69,9 +88,11 @@ class Site
      */
     public function getMetaTags(): array
     {
+
+
         // Todo: put more meta tags
         return [
-            'description' => $this->xPath->evaluate('string(//meta[@name="description"]/@content)') ?: null,
+            'description' => $this->xPath->query('//meta[@name="description"]'),
             'keywords' => $this->xPath->evaluate('string(//meta[@name="keywords"]/@content)') ?: null,
         ];
     }

@@ -53,7 +53,7 @@ class ErrorMiddleware
 
         // Todo: only local dev
         if ($displayErrorDetails) {
-//            throw $exception;
+            throw $exception;
         }
 
         init($this->options);

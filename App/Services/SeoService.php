@@ -6,12 +6,14 @@ namespace App\Services;
 use App\Exceptions\SeoException;
 use App\Exceptions\SiteException;
 use App\Helpers\Collection;
+use DOMNodeList;
 
 class SeoService
 {
     public const HIGH_IMPORTANCE = 3;
     public const MEDIUM_IMPORTANCE = 2;
     public const LOW_IMPORTANCE = 1;
+    public const MAX_META_DESCRIPTION_CHARS = 160;
 
     /** @var string $url */
     private string $url;
@@ -57,6 +59,7 @@ class SeoService
     {
         $this->site = new Site($this->url);
 
+        $this->validateHtmlTag();
         $this->validateMetaTags();
 //        $this->validateOnPageStyle();
 //        $this->validateOnPageJavaSript();
@@ -81,6 +84,16 @@ class SeoService
     }
 
     /**
+     * Validate `lang` in <html> tag
+     */
+    private function validateHtmlTag(): void
+    {
+        if (!$this->site->getHtmlLang()) {
+            $this->addProblem('html.lang', 'Language is missing', self::HIGH_IMPORTANCE);
+        }
+    }
+
+    /**
      * Validate all meta tags
      */
     private function validateMetaTags(): void
@@ -88,8 +101,23 @@ class SeoService
         // Todo: tu sa budu validatovt meta tagy ... ci description nie je velka atd.
         $meta = $this->site->getMetaTags();
 
-        if (!$meta['description']) {
+        /** @var DOMNodeList $description */
+        $description = $meta['description'];
+
+        if ($description->count() === 1) {
+            if (strlen($description->item(0)->nodeValue) > self::MAX_META_DESCRIPTION_CHARS) {
+                $this->addProblem('meta.description', 'Multiple descriptions detected', self::MEDIUM_IMPORTANCE);
+            }
+        } else if ($description->count() > 1) {
+            $this->addProblem('meta.description', 'Multiple descriptions detected', self::HIGH_IMPORTANCE);
+        } else {
             $this->addProblem('meta.description', 'Description is missing', self::HIGH_IMPORTANCE);
+        }
+
+//        if ($meta['description'] > )
+
+        if (!$meta['keywords']) {
+            $this->addProblem('meta.keywords', 'Keywords are missing', self::HIGH_IMPORTANCE);
         }
     }
 

@@ -1,0 +1,43 @@
+name: Production deployment
+
+on: push
+
+jobs:
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: Run tests
+        run: composer test
+
+  deploy:
+    name: Deploy
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install dependencies for production
+        run: composer install --no-dev --optimize-autoloader --prefer-dist --no-progress --no-suggest
+
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest .
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Push Image to Digitalocean
+          run: |
+            doctl registry login
+            docker tag doseo:latest ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
+            docker push ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest

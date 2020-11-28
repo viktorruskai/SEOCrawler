@@ -69,7 +69,7 @@ class AnalyzeControllerTest extends TestCase
         $response = $this->app->handle($request);
 
         $responseJson = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
-
+//var_dump($responseJson);
         // Asserts
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('success', $responseJson['status']);
