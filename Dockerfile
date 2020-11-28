@@ -5,8 +5,8 @@ RUN apt-get update \
     mysql-client libmagickwand-dev --no-install-recommends \
     && pecl install imagick \
     && docker-php-ext-enable imagick \
-    && docker-php-ext-install mcrypt pdo_mysql
-    rm -rf /var/cache/apk/*
+    && docker-php-ext-install mcrypt pdo_mysql \
+    && rm -rf /var/cache/apk/*
 
 # Copy existing application directory contents
 COPY . /var/www
