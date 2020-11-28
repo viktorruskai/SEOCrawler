@@ -32,7 +32,7 @@ jobs:
         run: composer install --no-dev --optimize-autoloader --prefer-dist --no-progress --no-suggest
 
       - name: Build Docker image
-        run: docker build -t ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo .
+        run: docker build -t ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest .
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -42,5 +42,5 @@ jobs:
       - name: Push Image to Digitalocean
         run: |
           doctl registry login
-          docker tag doseo:latest ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo
-          docker push ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo
+          docker tag ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
+          docker push ${{ secrets.DIGITALOCEAN_CONTAINER_REGISTRY }}/doseo:latest
