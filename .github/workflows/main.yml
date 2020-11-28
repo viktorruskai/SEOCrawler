@@ -15,11 +15,11 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-suggest
 
-      - name: Start PHP server
-        run: composer start --timeout=20
-
-      - name: Run tests
-        run: composer tests
+#      - name: Start PHP server
+#        run: composer start --timeout=20
+#
+#      - name: Run tests
+#        run: composer tests
 
   deploy:
     name: Deploy
