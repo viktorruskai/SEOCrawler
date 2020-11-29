@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Exceptions\SiteException;
 use DOMDocument;
 use DOMNode;
+use DOMNodeList;
 use DOMXpath;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -20,6 +21,12 @@ class Site
     /** @var DOMXpath $xPath */
     private DOMXpath $xPath;
 
+    /** @var string $robotsUrl */
+    private string $robotsUrl;
+
+    /** @var string $sitemapUrl */
+    private string $sitemapUrl;
+
     /**
      * Site constructor
      *
@@ -28,6 +35,13 @@ class Site
      */
     public function __construct(string $url)
     {
+        $parts = parse_url($url);
+
+        $baseUrl = $parts['scheme'] . '://' . $parts['host'];
+
+        $this->robotsUrl = $baseUrl . '/robots.txt';
+        $this->sitemapUrl = $baseUrl . '/sitemap.xml';
+
         $response = null;
 
         try {
@@ -63,6 +77,49 @@ class Site
     }
 
     /**
+     * Check if robots.txt and sitemap.xml exist
+     */
+    public function getRobotsAndSitemap(): array
+    {
+        $toReturn = [
+            'hasRobots' => false,
+            'hasSitemap' => false,
+        ];
+
+        try {
+            $client = new Client([
+                'timeout' => 6,
+                'connection_timeout' => 6,
+                'read_timeout' => 6,
+            ]);
+
+            $response = $client->request('GET', $this->robotsUrl);
+
+            if ($response->getStatusCode() === 200) {
+                $toReturn['hasRobots'] = true;
+            }
+        } catch (GuzzleException $e) {}
+
+        // TODO: check for sitemap occurrence in robots.txt (It must be checked!!!) at the end of robots.txt
+
+        try {
+            $client = new Client([
+                'timeout' => 6,
+                'connection_timeout' => 6,
+                'read_timeout' => 6,
+            ]);
+
+            $response = $client->request('GET', $this->sitemapUrl);
+
+            if ($response->getStatusCode() === 200) {
+                $toReturn['hasSitemap'] = true;
+            }
+        } catch (GuzzleException $e) {}
+
+        return $toReturn;
+    }
+
+    /**
      * Return language
      *
      * @return string|null
@@ -93,7 +150,7 @@ class Site
         // Todo: put more meta tags
         return [
             'description' => $this->xPath->query('//meta[@name="description"]'),
-            'keywords' => $this->xPath->evaluate('string(//meta[@name="keywords"]/@content)') ?: null,
+            'keywords' => $this->xPath->query('//meta[@name="keywords"]/@content'),
         ];
     }
 
@@ -131,4 +188,23 @@ class Site
 //
 //        return $toReturn;
 //    }
+
+    /**
+     * Return title tag
+     *
+     * @return DOMNodeList|false
+     */
+    public function getTitleTag()
+    {
+        return $this->xPath->query('//title');
+    }
+
+    public function getHeadings(): array
+    {
+        return [
+            'h1' => $this->dom->getElementsByTagName('h1'),
+            'h2' => $this->dom->getElementsByTagName('h2'),
+            'h3' => $this->dom->getElementsByTagName('h3'),
+        ];
+    }
 }
