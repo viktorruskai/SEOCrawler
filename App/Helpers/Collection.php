@@ -8,9 +8,19 @@ use ArrayObject;
 class Collection extends ArrayObject
 {
 
-    public function mapByType()
+    /**
+     * Return array mapped by type
+     *
+     * @return array
+     */
+    public function mapByType(): array
     {
+        $toReturn = [];
+        foreach ($this->getArrayCopy() as $item) {
+            $toReturn[$item['type']][] = $item;
+        }
 
+        return $toReturn;
     }
 
     /**
