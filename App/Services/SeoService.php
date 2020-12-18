@@ -38,8 +38,6 @@ class SeoService
             throw new SeoException('Website is wrong.');
         }
 
-        $parts = parse_url($url);
-
         $this->url = $url;
         $this->problems = new Collection();
 
@@ -78,7 +76,7 @@ class SeoService
             'isSeoGood' => true, // Todo: to decide
             'seoRate' => $this->problems->averageImportance(),
             'websiteName' => $this->url,
-            'problems' => $this->problems->mapByType(),
+            'results' => $this->problems->mapBy(),
         ];
     }
 
@@ -89,13 +87,15 @@ class SeoService
     {
         $site = $this->site->getRobotsAndSitemap();
 
-        if (!$site['hasRobots']) {
-            $this->addProblem('robots.txt', 'Robots.txt is missing', self::HIGH_IMPORTANCE);
-        }
+        $this->addProblem('robots.txt', !$site['hasRobots'] ? 'Robots.txt is missing' : null, self::HIGH_IMPORTANCE, [
+            'isMissing' => $site['hasRobots'],
+            'recommendation' => !$site['hasRobots'] ? 'You should create robots.txt.' : null,
+        ]);
 
-        if (!$site['hasSitemap']) {
-            $this->addProblem('sitemap.xml', 'Sitemap.txt is missing', self::HIGH_IMPORTANCE);
-        }
+        $this->addProblem('sitemap.xml', !$site['hasSitemap'] ? 'Sitemap.xml is missing' : null, self::HIGH_IMPORTANCE, [
+            'isMissing' => $site['hasSitemap'],
+            'recommendation' => !$site['hasSitemap'] ? 'You should create sitemap.xml.' : null,
+        ]);
     }
 
     /**
@@ -179,7 +179,7 @@ class SeoService
         }
 
         if ($headings['h3']->count() === 0) {
-            $this->addProblem('h3', 'H3 tags is missing.', self::HIGH_IMPORTANCE);
+            $this->addProblem('h3', 'H3 tags is missing.', self::LOW_IMPORTANCE);
         }
     }
 
@@ -187,11 +187,11 @@ class SeoService
      * Add problem
      *
      * @param string $type
-     * @param string $message
+     * @param string|null $message
      * @param int $importance
      * @param array $optionalData
      */
-    private function addProblem(string $type, string $message, int $importance, array $optionalData = []): void
+    private function addProblem(string $type, ?string $message, int $importance, array $optionalData = []): void
     {
         $this->problems->append([
             'type' => $type,

@@ -100,7 +100,8 @@ class Site
             }
         } catch (GuzzleException $e) {}
 
-        // TODO: check for sitemap occurrence in robots.txt (It must be checked!!!) at the end of robots.txt
+        // TODO: check for sitemap occurrence in robots.txt (It must be checked!!!) and get that url and check it, if it doesn't exist
+        //   then check regular one at the end of robots.txt
 
         try {
             $client = new Client([

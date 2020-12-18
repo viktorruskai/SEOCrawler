@@ -69,16 +69,13 @@ class AnalyzeControllerTest extends TestCase
         $response = $this->app->handle($request);
 
         $responseJson = json_decode((string)$response->getBody(), true, 512, JSON_THROW_ON_ERROR);
-ini_set('xdebug.var_display_max_depth', '10');
-ini_set('xdebug.var_display_max_children', '256');
-ini_set('xdebug.var_display_max_data', '1024');
-var_dump($responseJson);
+
         // Asserts
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('success', $responseJson['status']);
         self::assertTrue($responseJson['data']['isSeoGood']);
         self::assertSame($url, $responseJson['data']['websiteName']);
-        self::assertEmpty($responseJson['data']['problems']);
+        self::assertEmpty($responseJson['data']['results']);
     }
 
 //    /**
