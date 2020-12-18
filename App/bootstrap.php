@@ -64,6 +64,14 @@ $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 
+$app->add(function ($request, $handler) {
+    $response = $handler->handle($request);
+    return $response
+        ->withHeader('Access-Control-Allow-Origin', '*')
+        ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
+        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+});
+
 // Error middleware
 $errorMiddleware = new ErrorMiddleware([
     'dsn' => 'https://d18a4b7b04284e98bd8dc862326645f9@o338677.ingest.sentry.io/5523633',
@@ -78,10 +86,10 @@ $errorHandler->setDefaultErrorHandler($errorMiddleware);
 $routes = require __DIR__ . '/routes.php';
 $routes($app);
 
-//if (isset($_ENV['environment']) && $_ENV['environment'] === 'production') {
+if (isset($_ENV['environment']) && $_ENV['environment'] === 'production') {
     $routeCollector = $app->getRouteCollector();
     $routeCollector->setCacheFile($settings['settings']['routerCacheFile']);
-//}
+}
 
 // Boot database
 $capsule = new Manager;

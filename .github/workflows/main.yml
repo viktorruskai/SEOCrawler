@@ -1,26 +1,23 @@
-#name: Production deployment
-#
-#on: push
-#
-#jobs:
-#  build_and_test:
-#    name: Build and Test
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v2
-#
-#      - name: Validate composer.json and composer.lock
-#        run: composer validate
-#
-#      - name: Install dependencies
-#        run: composer install --prefer-dist --no-progress --no-suggest
-#
-##      - name: Start PHP server
-##        run: composer start --timeout=20
-##
-##      - name: Run tests
-##        run: composer tests
-#
+name: Production deployment
+
+on: push
+
+jobs:
+  build_and_test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: Run tests
+        run: composer tests
+
 #  deploy:
 #    name: Deploy
 #    needs: build_and_test
