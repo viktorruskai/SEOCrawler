@@ -34,6 +34,8 @@ class SeoService
     /** @var Collection $problems */
     private Collection $problems;
 
+    private Collection $informations;
+
     /**
      * SeoService constructor
      *
@@ -49,6 +51,7 @@ class SeoService
 
         $this->url = $url;
         $this->problems = new Collection();
+        $this->informations = new Collection();
         $this->externalLinks = new Collection();
         $this->internalLinks = new Collection();
 //        $this->isCrawl = $data['isCrawl'] ?? false;
@@ -63,6 +66,8 @@ class SeoService
     public function scan(): void
     {
         $this->site = new Site($this->url);
+
+        $this->addInformation('requestTime', null, ['time' => round($this->site->requestTime, 2)]);
 
         $this->checkRobotsAndSitemap();
         $this->validateHtmlTag();
@@ -93,7 +98,8 @@ class SeoService
             'isSeoGood' => true, // Todo: to decide
             'seoRate' => $this->problems->averageImportance(),
             'websiteName' => $this->url,
-            'results' => $this->problems->mapBy(),
+            'informations' => $this->informations->mapBy('type'),
+            'results' => $this->problems->mapBy(null, 'importance'),
         ];
     }
 
@@ -104,12 +110,12 @@ class SeoService
     {
         $site = $this->site->getRobotsAndSitemap();
 
-        $this->addProblem('robots.txt', !$site['hasRobots'] ? 'Robots.txt is missing' : null, self::HIGH_IMPORTANCE, [
+        $this->addInformation('robots.txt', !$site['hasRobots'] ? 'Robots.txt is missing' : null, [
             'isMissing' => !$site['hasRobots'],
             'recommendation' => !$site['hasRobots'] ? 'You should create robots.txt.' : null,
         ]);
 
-        $this->addProblem('sitemap.xml', !$site['hasSitemap'] ? 'Sitemap.xml is missing' : null, self::HIGH_IMPORTANCE, [
+        $this->addInformation('sitemap.xml', !$site['hasSitemap'] ? 'Sitemap.xml is missing' : null, [
             'isMissing' => !$site['hasSitemap'],
             'recommendation' => !$site['hasSitemap'] ? 'You should create sitemap.xml.' : null,
         ]);
@@ -121,7 +127,7 @@ class SeoService
     private function validateHtmlTag(): void
     {
         if (!$this->site->getHtmlLang()) {
-            $this->addProblem('html.lang', 'Language is missing', self::HIGH_IMPORTANCE);
+            $this->addProblem('html.lang', 'Language is missing', self::HIGH_IMPORTANCE, 1);
         }
     }
 
@@ -141,7 +147,7 @@ class SeoService
                 $this->addProblem('meta.description', '', self::MEDIUM_IMPORTANCE);
             }
         } else if ($description->count() > 1) {
-            $this->addProblem('meta.description', 'Multiple meta descriptions detected.', self::HIGH_IMPORTANCE);
+            $this->addProblem('meta.description', 'Multiple meta descriptions detected.', self::HIGH_IMPORTANCE, 1);
         } else {
             $this->addProblem('meta.description', 'Meta description is missing.', self::HIGH_IMPORTANCE);
         }
@@ -167,7 +173,7 @@ class SeoService
                 $this->addProblem('title', 'Title should have max. ' . self::MAX_TITLE_CHARS . ' characters (You have ' . strlen($title->item(0)->nodeValue) . ' characters)', self::MEDIUM_IMPORTANCE);
             }
         } else if ($title->count() > 1) {
-            $this->addProblem('title', 'Multiple title tags detected.', self::HIGH_IMPORTANCE);
+            $this->addProblem('title', 'Multiple title tags detected.', self::HIGH_IMPORTANCE, 1);
         } else {
             $this->addProblem('title', 'Title tag is missing.', self::HIGH_IMPORTANCE);
         }
@@ -222,20 +228,20 @@ class SeoService
             $countInlineScriptTags++;
 
             if (strlen($script->nodeValue) >= self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG) {
-                $this->addProblem('script', /** @lang text */ 'Your <script> tag exceed recommended size. (' . self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG . ' characters - yours is' . strlen($script->nodeValue) . ')', self::LOW_IMPORTANCE, ['snippet' => substr($script->nodeValue, 0, 200) . '...']);
+                $this->addProblem('script', /** @lang text */ 'Your <script> tag exceed recommended size. (' . self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG . ' characters - yours is ' . strlen($script->nodeValue) . ')', self::LOW_IMPORTANCE, 5,['snippet' => substr($script->nodeValue, 0, 200) . '...']);
             }
         }
 
         if ($countScriptTags > self::MAX_ALLOWED_SCRIPT_TAGS) {
-            $this->addProblem('script', /** @lang text */ 'You should not use too many <script> tags in HTML. (Found ' . $countScriptTags . ($countScriptTags === 1 ? ' time' : ' times') . ')', self::LOW_IMPORTANCE);
+            $this->addProblem('script', /** @lang text */ 'You should not use too many <script> tags in HTML. (Found ' . $countScriptTags . ($countScriptTags === 1 ? ' time' : ' times') . ')', self::LOW_IMPORTANCE, 10);
         }
 
         if ($countInternalScriptTags > self::MAX_ALLOWED_INTERNAL_SCRIPT_TAGS) {
-            $this->addProblem('script', /** @lang text */ 'You should not use too many internal <script> tags. Consider, joining them together. (Found ' . $countInternalScriptTags . ($countInternalScriptTags === 1 ? ' time' : ' times') . ')', self::LOW_IMPORTANCE);
+            $this->addProblem('script', /** @lang text */ 'You should not use too many internal <script> tags. Consider, joining them together. (Found ' . $countInternalScriptTags . ($countInternalScriptTags === 1 ? ' time' : ' times') . ')', self::LOW_IMPORTANCE, 10);
         }
 
         if ($countInlineScriptTags > self::MAX_ALLOWED_INLINE_SCRIPT_TAGS) {
-            $this->addProblem('script', /** @lang text */ 'You should not use too many inline <script> tags. It is recommended to have one JavaScript file with multiple purposes. (Found ' . $countInlineScriptTags . ' inline <script> ' . ($countInlineScriptTags === 1 ? 'tag' : 'tags') . ')', self::LOW_IMPORTANCE);
+            $this->addProblem('script', /** @lang text */ 'You should not use too many inline <script> tags. It is recommended to have one JavaScript file with multiple purposes. (Found ' . $countInlineScriptTags . ' inline <script> ' . ($countInlineScriptTags === 1 ? 'tag' : 'tags') . ')', self::LOW_IMPORTANCE, 10);
         }
     }
 
@@ -274,7 +280,7 @@ class SeoService
 
         // The only one problem is when using multiple canonical URLs. (tags)
         if ($links->count() > 1) {
-            $this->addProblem('link.canonical', 'Multiple canonical URLs found.', self::HIGH_IMPORTANCE);
+            $this->addProblem('link.canonical', 'Multiple canonical URLs found.', self::HIGH_IMPORTANCE, 1);
         }
 
         if ($isResult) {
@@ -303,7 +309,7 @@ class SeoService
         foreach ($images as $image) {
             // Check for `alt` attribute
             if ($image->getAttribute('alt') === '') {
-                $this->addProblem('img', /** @lang text */ '<img> tag should always has `alt` attribute. (and not empty)', self::LOW_IMPORTANCE);
+                $this->addProblem('img', /** @lang text */ '<img> tag should always has `alt` attribute. (and not empty)', self::LOW_IMPORTANCE, 2);
             }
 
             $imageFile = $image->getAttribute('src');
@@ -332,7 +338,7 @@ class SeoService
             $href = $aTag->getAttribute('href');
 
             if ($href === '') {
-                $this->addProblem('a', /** @lang text */ '<a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE);
+                $this->addProblem('a', /** @lang text */ '<a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE,1);
                 continue;
             }
 
@@ -354,21 +360,24 @@ class SeoService
             }
         }
 
-        foreach ($this->externalLinks as $externalLink) {
-            $statusCode = Site::getStatusCodeOfUrl($externalLink);
+        $this->addInformation('externalLinks', null, ['links' => $this->externalLinks->getArrayCopy()]);
+        $this->addInformation('internalLinks', null, ['links' => $this->internalLinks->getArrayCopy()]);
 
-            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
-                $this->addProblem('externalLink', /** @lang text */ 'External link <a href="' . $externalLink . '" target="_blank">' . strlen($externalLink) > 25 ? substr($externalLink, 0, 25) . '...' : $externalLink . '</a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE);
-            }
-        }
-
-        foreach ($this->internalLinks as $internalLink) {
-            $statusCode = Site::getStatusCodeOfUrl($internalLink);
-
-            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
-                $this->addProblem('internalLink', /** @lang text */ 'Internal link <a href="' . $internalLink . '" target="_blank">' . strlen($internalLink) > 25 ? substr($internalLink, 0, 25) . '...' : $internalLink . '</a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE);
-            }
-        }
+//        foreach ($this->externalLinks as $externalLink) {
+//            $statusCode = Site::getStatusCodeOfUrl($externalLink);
+//
+//            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
+//                $this->addProblem('externalLink', /** @lang text */ 'External link <a href="' . $externalLink . '" target="_blank">' . (strlen($externalLink) > 25 ? substr($externalLink, 0, 25) . '...' : $externalLink) . '</a> has returned ' . $statusCode . ' status code.', self::MEDIUM_IMPORTANCE, null);
+//            }
+//        }
+//
+//        foreach ($this->internalLinks as $internalLink) {
+//            $statusCode = Site::getStatusCodeOfUrl($internalLink);
+//
+//            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
+//                $this->addProblem('internalLink', /** @lang text */ 'Internal link <a href="' . $internalLink . '" target="_blank">' . (strlen($internalLink) > 25 ? substr($internalLink, 0, 25) . '...' : $internalLink) . '</a> has returned ' . $statusCode . ' status code.', self::MEDIUM_IMPORTANCE, null);
+//            }
+//        }
     }
 
     /**
@@ -437,14 +446,31 @@ class SeoService
      * @param string $type
      * @param string|null $message
      * @param int $importance
+     * @param int|null $maxSolvingTime
      * @param array $optionalData
      */
-    protected function addProblem(string $type, ?string $message, int $importance, array $optionalData = []): void
+    protected function addProblem(string $type, ?string $message, int $importance, ?int $maxSolvingTime = 5, array $optionalData = []): void
     {
         $this->problems->append([
             'type' => $type,
             'message' => $message,
             'importance' => $importance,
+            'maxSolvingTime' => $maxSolvingTime,
+        ] + $optionalData);
+    }
+
+    /**
+     * Add information
+     *
+     * @param string $type
+     * @param string|null $message
+     * @param array $optionalData
+     */
+    protected function addInformation(string $type, ?string $message, array $optionalData = []): void
+    {
+        $this->informations->append([
+            'type' => $type,
+            'message' => $message,
         ] + $optionalData);
     }
 }

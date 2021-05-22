@@ -10,7 +10,9 @@ use DOMNode;
 use DOMNodeList;
 use DOMXpath;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\TransferStats;
 use Psr\Http\Message\ResponseInterface;
 
 class Site
@@ -26,6 +28,8 @@ class Site
     public string $baseUrl;
 
     public string $url;
+
+    public float $requestTime;
 
     /** @var DOMDocument $dom */
     private DOMDocument $dom;
@@ -54,7 +58,7 @@ class Site
         $this->robotsUrl = $this->baseUrl . '/robots.txt';
         $this->sitemapUrl = $this->baseUrl . '/sitemap.xml';
 
-        $response = self::makeRequest($url);
+        [$response, $this->requestTime] = self::makeRequest($url);
 
         if (!$response) {
             throw new SiteException('Response is empty.');
@@ -81,7 +85,8 @@ class Site
      */
     public static function getStatusCodeOfUrl(string $url): ?int
     {
-        $response = self::makeRequest($url);
+        /** @var ResponseInterface $response */
+        [$response] = self::makeRequest($url, false);
 
         return $response ? $response->getStatusCode() : null;
     }
@@ -90,19 +95,33 @@ class Site
      * Make request
      *
      * @param string $url
-     * @return mixed|ResponseInterface
+     * @param bool $isThrownError
+     * @return array
      * @throws SiteException
      */
-    public static function makeRequest(string $url)
+    public static function makeRequest(string $url, bool $isThrownError = true): array
     {
         try {
+            $requestTime = 0;
+
             $client = new Client([
                 'timeout' => 6,
                 'connection_timeout' => 6,
                 'read_timeout' => 6,
+                'on_stats' => function (TransferStats $stats) use (&$requestTime)  {
+                    $requestTime = $stats->getTransferTime();
+                }
             ]);
 
-            return $client->request('GET', $url);
+            $response =  $client->request('GET', $url);
+
+            return [$response, $requestTime];
+        } catch (ClientException $e) {
+            if (!$isThrownError) {
+                return [$e->getResponse(), 0];
+            }
+
+            throw new SiteException($e->getMessage());
         } catch (GuzzleException $e) {
             throw new SiteException($e->getMessage());
         }

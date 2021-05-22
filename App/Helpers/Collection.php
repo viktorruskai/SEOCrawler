@@ -11,17 +11,36 @@ class Collection extends ArrayObject
     /**
      * Return array mapped by type
      *
-     * @param string $field
+     * @param string|null $field
+     * @param string|null $sortBy
+     * @param int|null $order
      * @return array
      */
-    public function mapBy(string $field = 'type'): array
+    public function mapBy(?string $field = null, ?string $sortBy = null, ?int $order = null): array
     {
-        $toReturn = [];
-        foreach ($this->getArrayCopy() as $item) {
-            $toReturn[$item[$field]][] = $item;
+        $arrayCollection = $this->getArrayCopy();
+
+        if ($sortBy) {
+            $columns = array_column($arrayCollection, $sortBy);
+
+            if (!in_array($order, [SORT_ASC, SORT_DESC], true)) {
+                $order = SORT_DESC;
+            }
+
+            array_multisort($columns, $order, $arrayCollection);
         }
 
-        return $toReturn;
+        if ($field) {
+            $toReturn = [];
+
+            foreach ($arrayCollection as $item) {
+                $toReturn[$item[$field]][] = $item;
+            }
+
+            $arrayCollection = $toReturn;
+        }
+
+        return $arrayCollection;
     }
 
     /**
@@ -31,7 +50,7 @@ class Collection extends ArrayObject
      */
     public function averageImportance(): float
     {
-        $importance = array_map(static function($item) {
+        $importance = array_map(static function ($item) {
             return $item['importance'] ?? 0;
         }, $this->getArrayCopy());
 
