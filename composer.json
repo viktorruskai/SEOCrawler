@@ -1,14 +1,14 @@
 {
-    "name": "slim/slim-skeleton",
+    "name": "doseo/doseo",
     "description": "A Slim Framework skeleton application for rapid development",
     "keywords": ["microframework", "rest", "router", "psr7"],
     "homepage": "http://github.com/slimphp/Slim-Skeleton",
     "license": "MIT",
     "authors": [
         {
-            "name": "Josh Lockhart",
-            "email": "info@joshlockhart.com",
-            "homepage": "http://www.joshlockhart.com/"
+            "name": "Viktor Ruskai",
+            "email": "viktor@ruskai.com",
+            "homepage": "http://viktor.ruskai.com/"
         }
     ],
     "require": {
@@ -24,7 +24,6 @@
         "ext-dom": "*"
     },
     "require-dev": {
-        "roave/security-advisories": "dev-master",
         "phpunit/phpunit": ">=5.0"
     },
     "autoload": {

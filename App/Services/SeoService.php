@@ -6,6 +6,8 @@ namespace App\Services;
 use App\Exceptions\SeoException;
 use App\Exceptions\SiteException;
 use App\Helpers\Collection;
+use DOMElement;
+use DOMNode;
 use DOMNodeList;
 
 class SeoService
@@ -15,6 +17,13 @@ class SeoService
     public const LOW_IMPORTANCE = 1;
     public const MAX_META_DESCRIPTION_CHARS = 160;
     public const MAX_TITLE_CHARS = 63;
+    public const MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG = 1500;
+    public const MAX_ALLOWED_SCRIPT_TAGS = 10;
+    public const MAX_ALLOWED_INTERNAL_SCRIPT_TAGS = 4;
+    public const MAX_ALLOWED_INLINE_SCRIPT_TAGS = 4;
+
+    protected Collection $externalLinks;
+    protected Collection $internalLinks;
 
     /** @var string $url */
     private string $url;
@@ -40,7 +49,8 @@ class SeoService
 
         $this->url = $url;
         $this->problems = new Collection();
-
+        $this->externalLinks = new Collection();
+        $this->internalLinks = new Collection();
 //        $this->isCrawl = $data['isCrawl'] ?? false;
 //        $this->startAt = time();
     }
@@ -57,13 +67,20 @@ class SeoService
         $this->checkRobotsAndSitemap();
         $this->validateHtmlTag();
         $this->validateHeadTags();
-//        $this->validateOnPageStyle();
-//        $this->validateOnPageJavaSript();
-//        $this->validateBody();
+        $this->validateOnPageStyle();
+        $this->validateOnPageJavaScript();
         $this->validateHeadings();
-//        $this->validateImages();
-//        $this->checkLinks();
+        $this->validateImages();
+        $this->checkLinks();
     }
+
+
+
+
+    // TODO: https://medium.com/@devbattles/add-more-seo-in-user-created-html-with-php-dom-methods-790e818759a8 check functions
+
+    // Todo: premenovat všetky priečinky na prve pismeno veľké
+
 
     /**
      * Return results for response
@@ -88,12 +105,12 @@ class SeoService
         $site = $this->site->getRobotsAndSitemap();
 
         $this->addProblem('robots.txt', !$site['hasRobots'] ? 'Robots.txt is missing' : null, self::HIGH_IMPORTANCE, [
-            'isMissing' => $site['hasRobots'],
+            'isMissing' => !$site['hasRobots'],
             'recommendation' => !$site['hasRobots'] ? 'You should create robots.txt.' : null,
         ]);
 
         $this->addProblem('sitemap.xml', !$site['hasSitemap'] ? 'Sitemap.xml is missing' : null, self::HIGH_IMPORTANCE, [
-            'isMissing' => $site['hasSitemap'],
+            'isMissing' => !$site['hasSitemap'],
             'recommendation' => !$site['hasSitemap'] ? 'You should create sitemap.xml.' : null,
         ]);
     }
@@ -109,7 +126,7 @@ class SeoService
     }
 
     /**
-     * Validate all meta, script, style tags and title tag
+     * Validate all <meta>, <script>, <style> tags and title tag
      */
     private function validateHeadTags(): void
     {
@@ -156,10 +173,72 @@ class SeoService
         }
     }
 
-    public function validateBody()
+    /**
+     * Check if <style> tag exists
+     */
+    public function validateOnPageStyle(): void
     {
+        $styles = $this->site->getStyle();
 
+        if (!is_null($styles)) {
+            $this->addProblem('style', /** @lang text */ 'You should not use <style> tag in HTML. (Found ' . $styles->count() . ($styles->count() === 1 ? ' time' : ' times') . ')', self::MEDIUM_IMPORTANCE);
+        }
     }
+
+    /**
+     * Check if <script> tag exists
+     */
+    public function validateOnPageJavaScript(): void
+    {
+        $scripts = $this->site->getScript();
+
+        if ($scripts === null) {
+            return;
+        }
+
+        $countScriptTags = 0;
+        $countInternalScriptTags = 0;
+        $countInlineScriptTags = 0;
+
+        // Get canonical URL
+        $canonicalUrl = $this->validateCanonicalUrl(true);
+
+        /** @var DOMNode|DOMElement $script */
+        foreach ($scripts as $script) {
+            $countScriptTags++;
+
+            $javaScriptFile = $script->getAttribute('src');
+
+            if ($javaScriptFile !== '') {
+                if ($this->isExternalUrl($javaScriptFile, $this->site->baseUrl)) {
+                    $this->externalLinks->append($javaScriptFile);
+                } else {
+                    $countInternalScriptTags++;
+                    $this->internalLinks->append($this->joinUrlAndPath($canonicalUrl, $javaScriptFile));
+                }
+                continue;
+            }
+
+            $countInlineScriptTags++;
+
+            if (strlen($script->nodeValue) >= self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG) {
+                $this->addProblem('script', /** @lang text */ 'Your <script> tag exceed recommended size. (' . self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG . ' characters - yours is' . strlen($script->nodeValue) . ')', self::LOW_IMPORTANCE, ['snippet' => substr($script->nodeValue, 0, 200) . '...']);
+            }
+        }
+
+        if ($countScriptTags > self::MAX_ALLOWED_SCRIPT_TAGS) {
+            $this->addProblem('script', /** @lang text */ 'You should not use too many <script> tags in HTML. (Found ' . $countScriptTags . ($countScriptTags === 1 ? ' time' : ' times') . ')', self::LOW_IMPORTANCE);
+        }
+
+        if ($countInternalScriptTags > self::MAX_ALLOWED_INTERNAL_SCRIPT_TAGS) {
+            $this->addProblem('script', /** @lang text */ 'You should not use too many internal <script> tags. Consider, joining them together. (Found ' . $countInternalScriptTags . ($countInternalScriptTags === 1 ? ' time' : ' times') . ')', self::LOW_IMPORTANCE);
+        }
+
+        if ($countInlineScriptTags > self::MAX_ALLOWED_INLINE_SCRIPT_TAGS) {
+            $this->addProblem('script', /** @lang text */ 'You should not use too many inline <script> tags. It is recommended to have one JavaScript file with multiple purposes. (Found ' . $countInlineScriptTags . ' inline <script> ' . ($countInlineScriptTags === 1 ? 'tag' : 'tags') . ')', self::LOW_IMPORTANCE);
+        }
+    }
+
 
     /**
      * Validate headings
@@ -184,6 +263,175 @@ class SeoService
     }
 
     /**
+     * Check if canonical url is set. If `$isResult` is set to true then return found canonical url(if not set then `baseUrl`)
+     *
+     * @param bool $isResult
+     * @return string|null
+     */
+    public function validateCanonicalUrl(bool $isResult = false): ?string
+    {
+        $links = $this->site->getCanonicalUrl();
+
+        // The only one problem is when using multiple canonical URLs. (tags)
+        if ($links->count() > 1) {
+            $this->addProblem('link.canonical', 'Multiple canonical URLs found.', self::HIGH_IMPORTANCE);
+        }
+
+        if ($isResult) {
+            if ($links->length === 0) {
+                return $this->site->baseUrl;
+            }
+
+            $href = $links->item(0)->nodeValue;
+
+            return $href !== '' ? $href : $this->site->baseUrl;
+        }
+
+        return null;
+    }
+
+    /**
+     * Validate <img> tags
+     */
+    public function validateImages(): void
+    {
+        $images = $this->site->getImages();
+
+        $canonicalUrl = $this->validateCanonicalUrl(true);
+
+        /** @var DOMNode|DOMElement $image */
+        foreach ($images as $image) {
+            // Check for `alt` attribute
+            if ($image->getAttribute('alt') === '') {
+                $this->addProblem('img', /** @lang text */ '<img> tag should always has `alt` attribute. (and not empty)', self::LOW_IMPORTANCE);
+            }
+
+            $imageFile = $image->getAttribute('src');
+
+            if ($this->isExternalUrl($imageFile, $this->site->baseUrl)) {
+                $this->externalLinks->append($imageFile);
+            } else {
+                $this->internalLinks->append($this->joinUrlAndPath($canonicalUrl, $imageFile));
+            }
+        }
+    }
+
+    /**
+     * Check links if they are valid and return any valid response
+     *
+     * @throws SiteException
+     */
+    public function checkLinks(): void
+    {
+        $aTags = $this->site->getATags();
+
+        $canonicalUrl = $this->validateCanonicalUrl(true);
+
+        /** @var DOMNode|DOMElement $aTag */
+        foreach ($aTags as $aTag) {
+            $href = $aTag->getAttribute('href');
+
+            if ($href === '') {
+                $this->addProblem('a', /** @lang text */ '<a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE);
+                continue;
+            }
+
+            if ($this->isExternalUrl($href, $this->site->baseUrl) && !in_array($href, (array)$this->externalLinks, true)) {
+                $this->externalLinks->append($href);
+                continue;
+            }
+
+            $wholeUrl = $this->joinUrlAndPath($canonicalUrl, $href);
+            $wholeUrl = $this->handleAnchor($wholeUrl);
+
+            // The URL is same
+            if ($wholeUrl === null) {
+                continue;
+            }
+
+            if (!in_array($wholeUrl, (array)$this->internalLinks, true)) {
+                $this->internalLinks->append($wholeUrl);
+            }
+        }
+
+        foreach ($this->externalLinks as $externalLink) {
+            $statusCode = Site::getStatusCodeOfUrl($externalLink);
+
+            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
+                $this->addProblem('externalLink', /** @lang text */ 'External link <a href="' . $externalLink . '" target="_blank">' . strlen($externalLink) > 25 ? substr($externalLink, 0, 25) . '...' : $externalLink . '</a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE);
+            }
+        }
+
+        foreach ($this->internalLinks as $internalLink) {
+            $statusCode = Site::getStatusCodeOfUrl($internalLink);
+
+            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
+                $this->addProblem('internalLink', /** @lang text */ 'Internal link <a href="' . $internalLink . '" target="_blank">' . strlen($internalLink) > 25 ? substr($internalLink, 0, 25) . '...' : $internalLink . '</a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE);
+            }
+        }
+    }
+
+    /**
+     * Check if URL (relative or absolute) is external (different then base URL)
+     *
+     * @param string $url
+     * @param string $baseUrl
+     * @return bool
+     */
+    protected function isExternalUrl(string $url, string $baseUrl): bool
+    {
+        $components = parse_url($url);
+
+        // we will treat url like '/relative.php' as relative
+        if (empty($components['host'])) {
+            return false;
+        }
+
+        // url host looks exactly like the local host
+        if (strcasecmp($components['host'], $baseUrl) === 0) {
+            return false;
+        }
+
+        $baseUrl = str_replace('www.', '', $baseUrl);
+
+        // check if the url host is a subdomain
+        return strripos($components['host'], '.' . $baseUrl) !== strlen($components['host']) - strlen('.' . $baseUrl);
+    }
+
+    /**
+     * Join base URL and path
+     *
+     * @param string $base
+     * @param string $path
+     * @return string
+     */
+    protected function joinUrlAndPath(string $base, string $path): string
+    {
+        return rtrim($base, '/') . '/' . ltrim($path, '/');
+    }
+
+    /**
+     * Handle fragments. Remove everything after `#`
+     *
+     * @param string $url
+     * @return string|null
+     */
+    protected function handleAnchor(string $url): ?string
+    {
+        if (strpos($url, '#') === false) {
+            return $url;
+        }
+
+        $url = substr($url, 0, strpos($url, '#'));
+
+        if ($url === $this->site->url) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    /**
      * Add problem
      *
      * @param string $type
@@ -191,7 +439,7 @@ class SeoService
      * @param int $importance
      * @param array $optionalData
      */
-    private function addProblem(string $type, ?string $message, int $importance, array $optionalData = []): void
+    protected function addProblem(string $type, ?string $message, int $importance, array $optionalData = []): void
     {
         $this->problems->append([
             'type' => $type,
