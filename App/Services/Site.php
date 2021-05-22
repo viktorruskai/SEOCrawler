@@ -5,15 +5,27 @@ namespace App\Services;
 
 use App\Exceptions\SiteException;
 use DOMDocument;
+use DOMElement;
 use DOMNode;
 use DOMNodeList;
 use DOMXpath;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Psr7\Request;
+use Psr\Http\Message\ResponseInterface;
 
 class Site
 {
+
+    public const ALLOWED_STATUS_CODES = [
+        200,
+        201,
+        202,
+        304,
+    ];
+
+    public string $baseUrl;
+
+    public string $url;
 
     /** @var DOMDocument $dom */
     private DOMDocument $dom;
@@ -37,13 +49,52 @@ class Site
     {
         $parts = parse_url($url);
 
-        $baseUrl = $parts['scheme'] . '://' . $parts['host'];
+        $this->url = $url;
+        $this->baseUrl = $parts['scheme'] . '://' . $parts['host'];
+        $this->robotsUrl = $this->baseUrl . '/robots.txt';
+        $this->sitemapUrl = $this->baseUrl . '/sitemap.xml';
 
-        $this->robotsUrl = $baseUrl . '/robots.txt';
-        $this->sitemapUrl = $baseUrl . '/sitemap.xml';
+        $response = self::makeRequest($url);
 
-        $response = null;
+        if (!$response) {
+            throw new SiteException('Response is empty.');
+        }
 
+        // HTML code
+        $response = $response->getBody()->getContents();
+
+        $this->dom = new DOMDocument();
+
+        if (@$this->dom->loadHTML($response) === false) {
+            throw new MapperException('Could not parse page content.');
+        }
+
+        $this->xPath = new DOMXpath($this->dom);
+    }
+
+    /**
+     * Return status code of URL
+     *
+     * @param string $url
+     * @return int|null
+     * @throws SiteException
+     */
+    public static function getStatusCodeOfUrl(string $url): ?int
+    {
+        $response = self::makeRequest($url);
+
+        return $response ? $response->getStatusCode() : null;
+    }
+
+    /**
+     * Make request
+     *
+     * @param string $url
+     * @return mixed|ResponseInterface
+     * @throws SiteException
+     */
+    public static function makeRequest(string $url)
+    {
         try {
             $client = new Client([
                 'timeout' => 6,
@@ -51,29 +102,10 @@ class Site
                 'read_timeout' => 6,
             ]);
 
-            $response = $client->request('GET', $url);
-
-            if ($response->getStatusCode() !== 200) {
-                throw new SiteException('Url: ' . $url . ' has returned `' . $response->getStatusCode() . '` code.');
-            }
-
-            // HTML code
-            $response = $response->getBody()->getContents();
+            return $client->request('GET', $url);
         } catch (GuzzleException $e) {
             throw new SiteException($e->getMessage());
         }
-
-        if (!$response) {
-            throw new SiteException('Response is empty.');
-        }
-
-        $this->dom = new DOMDocument();
-
-        if (@$this->dom->loadHTML($response) === false) {
-            throw new MapperException('Couldn\'t parse page content.');
-        }
-
-        $this->xPath = new DOMXpath($this->dom);
     }
 
     /**
@@ -94,8 +126,7 @@ class Site
             ]);
 
             $response = $client->request('GET', $this->robotsUrl);
-
-            if ($response->getStatusCode() === 200) {
+            if (in_array($response->getStatusCode(), self::ALLOWED_STATUS_CODES, true)) {
                 $toReturn['hasRobots'] = true;
             }
         } catch (GuzzleException $e) {}
@@ -112,7 +143,7 @@ class Site
 
             $response = $client->request('GET', $this->sitemapUrl);
 
-            if ($response->getStatusCode() === 200) {
+            if (in_array($response->getStatusCode(), self::ALLOWED_STATUS_CODES, true)) {
                 $toReturn['hasSitemap'] = true;
             }
         } catch (GuzzleException $e) {}
@@ -130,7 +161,7 @@ class Site
         $lang = $this->xPath->query('//html[@lang]') ?: null;
 
         if (isset($lang) && $lang->item(0)) {
-            /** @var DOMNode  $item */
+            /** @var DOMNode|DOMElement  $item */
             $item = $lang->item(0);
 
             $lang = $item ? $item->getAttribute('lang') : null;
@@ -153,6 +184,11 @@ class Site
             'description' => $this->xPath->query('//meta[@name="description"]'),
             'keywords' => $this->xPath->query('//meta[@name="keywords"]/@content'),
         ];
+    }
+
+    public function getCanonicalUrl(): DOMNodeList
+    {
+        return $this->xPath->query('//link[@rel="canonical"]/@href');
     }
 
 //    private function mapFields(DOMNodeList $tags, $inputs)
@@ -207,5 +243,49 @@ class Site
             'h2' => $this->dom->getElementsByTagName('h2'),
             'h3' => $this->dom->getElementsByTagName('h3'),
         ];
+    }
+
+    /**
+     * Return `styles` on website
+     *
+     * @return DOMNodeList|null
+     */
+    public function getStyle(): ?DOMNodeList
+    {
+        $elements = $this->dom->getElementsByTagName('style');
+
+        return $elements->length > 0 ? $elements : null;
+    }
+
+    /**
+     * Return `scripts` on website
+     *
+     * @return DOMNodeList|null
+     */
+    public function getScript(): ?DOMNodeList
+    {
+        $elements = $this->dom->getElementsByTagName('script');
+
+        return $elements->length > 0 ? $elements : null;
+    }
+
+    /**
+     * Return images
+     *
+     * @return DOMNodeList
+     */
+    public function getImages(): DOMNodeList
+    {
+        return $this->dom->getElementsByTagName('img');
+    }
+
+    /**
+     * Return <a> tags
+     *
+     * @return DOMNodeList
+     */
+    public function getATags(): DOMNodeList
+    {
+        return $this->dom->getElementsByTagName('a');
     }
 }

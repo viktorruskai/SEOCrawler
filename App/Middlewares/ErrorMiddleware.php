@@ -39,7 +39,7 @@ class ErrorMiddleware
      * @throws JsonException
      * @throws Throwable
      */
-    public function __invoke(ServerRequestInterface $request, Throwable $exception, bool $displayErrorDetails, bool $logErrors, bool $logErrorDetails, ?LoggerInterface $logger = null)
+    public function __invoke(ServerRequestInterface $request, Throwable $exception, bool $displayErrorDetails, bool $logErrors, bool $logErrorDetails, ?LoggerInterface $logger = null): Response
     {
         $isLogged = true;
 
@@ -51,20 +51,30 @@ class ErrorMiddleware
             $logger->error($exception->getMessage());
         }
 
+        $response = new Response();
+        $toReturn = [
+            'status' => 'error',
+            'message' => $exception->getMessage(),
+            'code' => $exception->getCode() ?: 500,
+        ];
+
+        if ($displayErrorDetails) {
+            $toReturn += [
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'trace' => $exception->getTrace(),
+                'previous' => $exception->getPrevious(),
+            ];
+        }
+
+        $response->getBody()->write(json_encode($toReturn, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         // Todo: only local dev
         if ($displayErrorDetails) {
-            throw $exception;
+            return $response;
         }
 
         init($this->options);
         captureException($exception);
-
-        $response = new Response();
-        $response->getBody()->write(json_encode([
-            'status' => 'error',
-            'message' => $exception->getMessage(),
-            'code' => $exception->getCode() ?: 500,
-        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
         return $response;
     }
 }
