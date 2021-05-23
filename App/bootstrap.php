@@ -1,8 +1,8 @@
 <?php
 
+use App\Middlewares\CorsMiddleware;
 use App\Middlewares\ErrorMiddleware;
 use DI\ContainerBuilder;
-use Illuminate\Database\Capsule\Manager;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Monolog\Processor\UidProcessor;
@@ -64,19 +64,11 @@ $app = AppFactory::create();
 $app->addBodyParsingMiddleware();
 $app->addRoutingMiddleware();
 
-$app->add(function ($request, $handler) {
-    $response = $handler->handle($request);
-    return $response
-        ->withHeader('Access-Control-Allow-Origin', '*')
-        ->withHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Origin, Authorization')
-        ->withHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-});
+// CORS middleware
+$app->add(new CorsMiddleware());
 
 // Error middleware
-$errorMiddleware = new ErrorMiddleware([
-    'dsn' => 'https://d18a4b7b04284e98bd8dc862326645f9@o338677.ingest.sentry.io/5523633',
-    'environment' => 'local',
-]);
+$errorMiddleware = new ErrorMiddleware($settings['settings']['sentry'] ?? []);
 
 // Error handler
 $errorHandler = $app->addErrorMiddleware(true, true, true);
@@ -90,12 +82,6 @@ if (isset($_ENV['environment']) && $_ENV['environment'] === 'production') {
     $routeCollector = $app->getRouteCollector();
     $routeCollector->setCacheFile($settings['settings']['routerCacheFile']);
 }
-
-// Boot database
-$capsule = new Manager;
-$capsule->addConnection($settings['settings']['db']);
-$capsule->bootEloquent();
-$capsule->setAsGlobal();
 
 // Run the app
 return $app;

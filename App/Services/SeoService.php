@@ -12,6 +12,7 @@ use DOMNodeList;
 
 class SeoService
 {
+    public const SEO_COMPARISON_COEFFICIENT = 1.5;
     public const HIGH_IMPORTANCE = 3;
     public const MEDIUM_IMPORTANCE = 2;
     public const LOW_IMPORTANCE = 1;
@@ -19,8 +20,8 @@ class SeoService
     public const MAX_TITLE_CHARS = 63;
     public const MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG = 1500;
     public const MAX_ALLOWED_SCRIPT_TAGS = 10;
-    public const MAX_ALLOWED_INTERNAL_SCRIPT_TAGS = 4;
-    public const MAX_ALLOWED_INLINE_SCRIPT_TAGS = 4;
+    public const MAX_ALLOWED_INTERNAL_SCRIPT_TAGS = 5;
+    public const MAX_ALLOWED_INLINE_SCRIPT_TAGS = 5;
 
     protected Collection $externalLinks;
     protected Collection $internalLinks;
@@ -36,26 +37,27 @@ class SeoService
 
     private Collection $informations;
 
+    private array $options;
+
     /**
      * SeoService constructor
      *
      * @param string $url
-     * @param array $data
+     * @param array $options
      * @throws SeoException
      */
-    public function __construct(string $url, array $data = [])
+    public function __construct(string $url, array $options = [])
     {
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             throw new SeoException('Website is wrong.');
         }
 
         $this->url = $url;
+        $this->options = $options;
         $this->problems = new Collection();
         $this->informations = new Collection();
         $this->externalLinks = new Collection();
         $this->internalLinks = new Collection();
-//        $this->isCrawl = $data['isCrawl'] ?? false;
-//        $this->startAt = time();
     }
 
     /**
@@ -67,8 +69,6 @@ class SeoService
     {
         $this->site = new Site($this->url);
 
-        $this->addInformation('requestTime', null, ['time' => round($this->site->requestTime, 2)]);
-
         $this->checkRobotsAndSitemap();
         $this->validateHtmlTag();
         $this->validateHeadTags();
@@ -79,14 +79,6 @@ class SeoService
         $this->checkLinks();
     }
 
-
-
-
-    // TODO: https://medium.com/@devbattles/add-more-seo-in-user-created-html-with-php-dom-methods-790e818759a8 check functions
-
-    // Todo: premenovat všetky priečinky na prve pismeno veľké
-
-
     /**
      * Return results for response
      *
@@ -94,9 +86,11 @@ class SeoService
      */
     public function getResults(): array
     {
+        $importance = $this->problems->averageImportance();
+
         return [
-            'isSeoGood' => true, // Todo: to decide
-            'seoRate' => $this->problems->averageImportance(),
+            'isSeoGood' => !($importance > self::SEO_COMPARISON_COEFFICIENT),
+            'seoRate' => $importance,
             'websiteName' => $this->url,
             'informations' => $this->informations->mapBy('type'),
             'results' => $this->problems->mapBy(null, 'importance'),
@@ -126,6 +120,8 @@ class SeoService
      */
     private function validateHtmlTag(): void
     {
+        $this->addInformation('requestTime', null, ['time' => round($this->site->requestTime, 2)]);
+
         if (!$this->site->getHtmlLang()) {
             $this->addProblem('html.lang', 'Language is missing', self::HIGH_IMPORTANCE, 1);
         }
@@ -228,7 +224,7 @@ class SeoService
             $countInlineScriptTags++;
 
             if (strlen($script->nodeValue) >= self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG) {
-                $this->addProblem('script', /** @lang text */ 'Your <script> tag exceed recommended size. (' . self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG . ' characters - yours is ' . strlen($script->nodeValue) . ')', self::LOW_IMPORTANCE, 5,['snippet' => substr($script->nodeValue, 0, 200) . '...']);
+                $this->addProblem('script', /** @lang text */ 'Your <script> tag exceed recommended size. (' . self::MAX_INLINE_CHARACTERS_IN_SCRIPT_TAG . ' characters - yours is ' . strlen($script->nodeValue) . ')', self::LOW_IMPORTANCE, 5, ['snippet' => substr($script->nodeValue, 0, 200) . '...']);
             }
         }
 
@@ -309,7 +305,7 @@ class SeoService
         foreach ($images as $image) {
             // Check for `alt` attribute
             if ($image->getAttribute('alt') === '') {
-                $this->addProblem('img', /** @lang text */ '<img> tag should always has `alt` attribute. (and not empty)', self::LOW_IMPORTANCE, 2);
+                $this->addProblem('img', /** @lang text */ '<img> tag should always has `alt` attribute and not empty.', self::LOW_IMPORTANCE, 2);
             }
 
             $imageFile = $image->getAttribute('src');
@@ -338,12 +334,16 @@ class SeoService
             $href = $aTag->getAttribute('href');
 
             if ($href === '') {
-                $this->addProblem('a', /** @lang text */ '<a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE,1);
+                $this->addProblem('a', /** @lang text */ '<a> tag does not contain any link in `href` attribute.', self::MEDIUM_IMPORTANCE, 1);
                 continue;
             }
 
             if ($this->isExternalUrl($href, $this->site->baseUrl) && !in_array($href, (array)$this->externalLinks, true)) {
                 $this->externalLinks->append($href);
+                continue;
+            }
+
+            if (strpos($href, 'mailto') !== false || strpos($href, 'tel') !== false) {
                 continue;
             }
 
@@ -363,21 +363,23 @@ class SeoService
         $this->addInformation('externalLinks', null, ['links' => $this->externalLinks->getArrayCopy()]);
         $this->addInformation('internalLinks', null, ['links' => $this->internalLinks->getArrayCopy()]);
 
-//        foreach ($this->externalLinks as $externalLink) {
-//            $statusCode = Site::getStatusCodeOfUrl($externalLink);
-//
-//            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
-//                $this->addProblem('externalLink', /** @lang text */ 'External link <a href="' . $externalLink . '" target="_blank">' . (strlen($externalLink) > 25 ? substr($externalLink, 0, 25) . '...' : $externalLink) . '</a> has returned ' . $statusCode . ' status code.', self::MEDIUM_IMPORTANCE, null);
-//            }
-//        }
-//
-//        foreach ($this->internalLinks as $internalLink) {
-//            $statusCode = Site::getStatusCodeOfUrl($internalLink);
-//
-//            if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
-//                $this->addProblem('internalLink', /** @lang text */ 'Internal link <a href="' . $internalLink . '" target="_blank">' . (strlen($internalLink) > 25 ? substr($internalLink, 0, 25) . '...' : $internalLink) . '</a> has returned ' . $statusCode . ' status code.', self::MEDIUM_IMPORTANCE, null);
-//            }
-//        }
+        if (isset($this->options['checkAllLinks']) && $this->options['checkAllLinks']) {
+            foreach ($this->externalLinks as $externalLink) {
+                $statusCode = Site::getStatusCodeOfUrl($externalLink);
+
+                if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
+                    $this->addProblem('externalLink', /** @lang text */ 'External link ' . (strlen($externalLink) > 50 ? substr($externalLink, 0, 50) . '...' : $externalLink) . ' has returned ' . $statusCode . ' status code.', self::MEDIUM_IMPORTANCE, null, ['link' => $externalLink, 'statusCode' => $statusCode]);
+                }
+            }
+
+            foreach ($this->internalLinks as $internalLink) {
+                $statusCode = Site::getStatusCodeOfUrl($internalLink);
+
+                if (!in_array($statusCode, Site::ALLOWED_STATUS_CODES, true)) {
+                    $this->addProblem('internalLink', /** @lang text */ 'Internal link ' . (strlen($internalLink) > 50 ? substr($internalLink, 0, 50) . '...' : $internalLink) . ' has returned ' . $statusCode . ' status code.', self::MEDIUM_IMPORTANCE, null, ['link' => $internalLink, 'statusCode' => $statusCode]);
+                }
+            }
+        }
     }
 
     /**
@@ -452,11 +454,11 @@ class SeoService
     protected function addProblem(string $type, ?string $message, int $importance, ?int $maxSolvingTime = 5, array $optionalData = []): void
     {
         $this->problems->append([
-            'type' => $type,
-            'message' => $message,
-            'importance' => $importance,
-            'maxSolvingTime' => $maxSolvingTime,
-        ] + $optionalData);
+                'type' => $type,
+                'message' => $message,
+                'importance' => $importance,
+                'maxSolvingTime' => $maxSolvingTime,
+            ] + $optionalData);
     }
 
     /**
@@ -469,8 +471,8 @@ class SeoService
     protected function addInformation(string $type, ?string $message, array $optionalData = []): void
     {
         $this->informations->append([
-            'type' => $type,
-            'message' => $message,
-        ] + $optionalData);
+                'type' => $type,
+                'message' => $message,
+            ] + $optionalData);
     }
 }
