@@ -68,7 +68,6 @@ class ErrorMiddleware
         }
 
         $response->getBody()->write(json_encode($toReturn, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
-        // Todo: only local dev
         if ($displayErrorDetails) {
             return $response;
         }

@@ -1,5 +1,5 @@
 {
-    "name": "doseo/doseo",
+    "name": "seo/analyser",
     "description": "A Slim Framework skeleton application for rapid development",
     "keywords": ["microframework", "rest", "router", "psr7"],
     "homepage": "http://github.com/slimphp/Slim-Skeleton",
@@ -15,7 +15,6 @@
         "php": ">=7.4",
         "ext-json": "*",
         "guzzlehttp/guzzle": "6.3.3",
-        "illuminate/database": "5.8.x-dev",
         "monolog/monolog": "^1.17",
         "php-di/php-di": "^6.0",
         "sentry/sdk": "^3.0",

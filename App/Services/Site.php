@@ -70,7 +70,7 @@ class Site
         $this->dom = new DOMDocument();
 
         if (@$this->dom->loadHTML($response) === false) {
-            throw new MapperException('Could not parse page content.');
+            throw new SiteException('Could not parse page content.');
         }
 
         $this->xPath = new DOMXpath($this->dom);
@@ -108,12 +108,12 @@ class Site
                 'timeout' => 6,
                 'connection_timeout' => 6,
                 'read_timeout' => 6,
-                'on_stats' => function (TransferStats $stats) use (&$requestTime)  {
+                'on_stats' => function (TransferStats $stats) use (&$requestTime) {
                     $requestTime = $stats->getTransferTime();
                 }
             ]);
 
-            $response =  $client->request('GET', $url);
+            $response = $client->request('GET', $url);
 
             return [$response, $requestTime];
         } catch (ClientException $e) {
@@ -137,6 +137,8 @@ class Site
             'hasSitemap' => false,
         ];
 
+        $response = null;
+
         try {
             $client = new Client([
                 'timeout' => 6,
@@ -148,10 +150,21 @@ class Site
             if (in_array($response->getStatusCode(), self::ALLOWED_STATUS_CODES, true)) {
                 $toReturn['hasRobots'] = true;
             }
-        } catch (GuzzleException $e) {}
+        } catch (GuzzleException $e) {
+        }
 
-        // TODO: check for sitemap occurrence in robots.txt (It must be checked!!!) and get that url and check it, if it doesn't exist
-        //   then check regular one at the end of robots.txt
+        $sitemapUrl = $this->sitemapUrl;
+
+        // Check for `Sitemap: ` line in robots.txt
+        if ($response) {
+            $content = trim($response->getBody()->getContents());
+
+            preg_match('/^Sitemap:\s(.*)/mi', $content, $match);
+
+            if (!empty($match) && filter_var($match[1], FILTER_VALIDATE_URL)) {
+                $sitemapUrl = $match[1];
+            }
+        }
 
         try {
             $client = new Client([
@@ -160,12 +173,13 @@ class Site
                 'read_timeout' => 6,
             ]);
 
-            $response = $client->request('GET', $this->sitemapUrl);
+            $response = $client->request('GET', $sitemapUrl);
 
             if (in_array($response->getStatusCode(), self::ALLOWED_STATUS_CODES, true)) {
                 $toReturn['hasSitemap'] = true;
             }
-        } catch (GuzzleException $e) {}
+        } catch (GuzzleException $e) {
+        }
 
         return $toReturn;
     }
@@ -180,13 +194,12 @@ class Site
         $lang = $this->xPath->query('//html[@lang]') ?: null;
 
         if (isset($lang) && $lang->item(0)) {
-            /** @var DOMNode|DOMElement  $item */
+            /** @var DOMNode|DOMElement $item */
             $item = $lang->item(0);
-
-            $lang = $item ? $item->getAttribute('lang') : null;
+            return $item ? $item->getAttribute('lang') : null;
         }
 
-        return $lang;
+        return null;
     }
 
     /**
@@ -196,54 +209,22 @@ class Site
      */
     public function getMetaTags(): array
     {
-
-
-        // Todo: put more meta tags
         return [
             'description' => $this->xPath->query('//meta[@name="description"]'),
             'keywords' => $this->xPath->query('//meta[@name="keywords"]/@content'),
+            'robots' => $this->xPath->query('//meta[@name="robots"]/@content'),
         ];
     }
 
+    /**
+     * Return tag with canonical url
+     *
+     * @return DOMNodeList
+     */
     public function getCanonicalUrl(): DOMNodeList
     {
         return $this->xPath->query('//link[@rel="canonical"]/@href');
     }
-
-//    private function mapFields(DOMNodeList $tags, $inputs)
-//    {
-//        var_dump($this->mapFields($metaTags, [
-//            [
-//                'name' => 'description',
-//                'field' => 'content'
-//            ],
-//            [
-//                'name' => 'keywords',
-//                'field' => 'content'
-//            ],
-//        ]));
-//
-//        $toReturn = [];
-//
-//        foreach ($inputs as $field) {
-//            /** @var DOMNode $tag */
-//            foreach ($tags as $tag) {
-//                $toReturn += [
-//                    $field['name'] => null,
-//                ];
-//                $fieldName = $tag->attributes->getNamedItem($field['name']);
-//                $fieldValue = $tag->attributes->getNamedItem($field['field']);
-//
-//
-//                if (isset($fieldName)) {
-//                    $toReturn[$field['name']] = $fieldValue->nodeValue ?? null;
-//                }
-//
-//            }
-//        }
-//
-//        return $toReturn;
-//    }
 
     /**
      * Return title tag

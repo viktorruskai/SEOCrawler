@@ -20,16 +20,10 @@ $config = [
             'level' => Logger::DEBUG,
         ],
 
-        'db' => [
-            'driver' => 'mysql',
-            'host' => '127.0.0.1',
-            'port' => 3306,
-            'database' => 'Crawler',
-            'username' => 'viktor',
-            'password' => 'viktor',
-            'charset' => 'utf8',
-            'collation' => 'utf8_general_ci',
-        ]
+        'sentry' => [
+            'dsn' => '',
+            'environment' => '',
+        ],
     ],
 ];
 
