@@ -9,14 +9,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Todo
+        run: echo -n "Todo"
 #      - name: Validate composer.json and composer.lock
 #        run: composer validate
 
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress --no-suggest
-
-      - name: Run tests
-        run: composer tests
+#      - name: Install dependencies
+#        run: composer install --prefer-dist --no-progress --no-suggest
+#
+#      - name: Run tests
+#        run: composer tests
 
 #  deploy:
 #    name: Deploy
